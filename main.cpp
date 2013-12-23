@@ -99,12 +99,10 @@ void attack(elliptics::session session, size_t rps_count)
 			session.find_any_indexes(indexes).connect(
 				std::bind(noop_callback),
 				std::bind(result_callback, micro_now()));
-
-			const auto current = micro_now();
-			const auto next = begin + std::chrono::microseconds((i + 1) * micro_total / rps_count);
-			if (next > current + std::chrono::microseconds(1000))
-				usleep((next - current).count());
 		}
+		const auto end = micro_now();
+		if (end > begin)
+			usleep((end - begin).count());
 	}
 }
 
