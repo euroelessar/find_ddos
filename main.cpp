@@ -101,8 +101,8 @@ void attack(elliptics::session session, size_t rps_count)
 				std::bind(result_callback, micro_now()));
 		}
 		const auto end = micro_now();
-		if (end > begin)
-			usleep((end - begin).count());
+		if (end > begin + std::chrono::seconds(1))
+			usleep(std::chrono::duration_cast<std::chrono::microseconds>(begin + std::chrono::seconds(1) - end).count());
 	}
 }
 
