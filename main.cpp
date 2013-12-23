@@ -76,22 +76,12 @@ void print_tables()
 	}
 }
 
-void attack(const std::vector<std::string> &remotes, const std::vector<int> &groups, size_t rps_count)
+void attack(elliptics::session session, size_t rps_count)
 {
 	std::random_device rd;
 	std::uniform_int_distribution<size_t> indexes_count(1, 2);
 	std::uniform_int_distribution<size_t> id(
 		std::numeric_limits<size_t>::min(), std::numeric_limits<size_t>::max());
-
-	elliptics::logger logger;
-	elliptics::node node(logger);
-	node.set_timeouts(5, 60);
-
-	for (const auto &remote : remotes)
-		node.add_remote(remote.c_str());
-
-	elliptics::session session(node);
-	session.set_groups(groups);
 
 	std::vector<dnet_raw_id> indexes;
 
@@ -138,12 +128,14 @@ int main(int argc, char **argv)
 	std::vector<std::string> remotes;
 	std::vector<int> groups;
 	size_t total_rps_count = 1;
+	size_t nodes_count = 1;
 	size_t threads_count = 1;
 
 	generic.add_options()
 		("help", "This help message")
 		("remote", bpo::value(&remotes), "Remote elliptics server address")
-		("threads", bpo::value(&threads_count), "Threads count")
+		("nodes", bpo::value(&nodes_count), "Nodes count")
+		("threads", bpo::value(&threads_count), "Threads count per node")
 		("group", bpo::value(&groups), "Groups")
 		("rps", bpo::value(&total_rps_count), "Requests per second")
 		;
@@ -156,16 +148,33 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	std::vector<std::unique_ptr<elliptics::node>> nodes;
 	std::vector<std::unique_ptr<boost::thread>> threads;
 
-	size_t rps_count = total_rps_count;
-	for (size_t i = 0; i < threads_count; ++i) {
-		size_t current_rps_count = rps_count / (threads_count - i);
-		if (current_rps_count == 0)
-			continue;
+	for (size_t i = 0; i < nodes_count; ++i) {
+		elliptics::logger logger;
+		elliptics::node node(logger);
+		node.set_timeouts(5, 60);
 
-		threads.emplace_back(new boost::thread(boost::bind(attack, remotes, groups, current_rps_count)));
-		rps_count -= current_rps_count;
+		for (const auto &remote : remotes)
+			node.add_remote(remote.c_str());
+
+		nodes.emplace_back(new elliptics::node(node));
+	}
+
+	for (size_t i = 0; i < nodes_count; ++i) {
+		elliptics::session session(*nodes[i]);
+		session.set_groups(groups);
+
+		size_t rps_count = total_rps_count;
+		for (size_t j = 0; j < threads_count; ++j) {
+			size_t current_rps_count = rps_count / (threads_count - j);
+			if (current_rps_count == 0)
+				continue;
+
+			threads.emplace_back(new boost::thread(boost::bind(attack, session.clone(), current_rps_count)));
+			rps_count -= current_rps_count;
+		}
 	}
 
 	threads.emplace_back(new boost::thread(print_tables));
