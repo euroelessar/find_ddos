@@ -102,7 +102,7 @@ void attack(elliptics::session session, size_t rps_count)
 
 			const auto current = micro_now();
 			const auto next = begin + std::chrono::microseconds((i + 1) * micro_total / rps_count);
-			if (next > current)
+			if (next > current + std::chrono::microseconds(1000))
 				usleep((next - current).count());
 		}
 	}
