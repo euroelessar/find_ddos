@@ -12,7 +12,7 @@ using namespace ioremap;
 
 std::chrono::microseconds micro_now()
 {
-	using clock = std::chrono::system_clock;
+	typedef std::chrono::system_clock clock;
 	return std::chrono::duration_cast<std::chrono::microseconds>(clock::now().time_since_epoch());
 }
 
