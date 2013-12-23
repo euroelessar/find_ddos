@@ -101,7 +101,7 @@ void attack(elliptics::session session, size_t rps_count)
 				std::bind(result_callback, micro_now()));
 		}
 		const auto end = micro_now();
-		if (end > begin + std::chrono::seconds(1))
+		if (end < begin + std::chrono::seconds(1))
 			usleep(std::chrono::duration_cast<std::chrono::microseconds>(begin + std::chrono::seconds(1) - end).count());
 	}
 }
@@ -160,18 +160,21 @@ int main(int argc, char **argv)
 		nodes.emplace_back(new elliptics::node(node));
 	}
 
+	size_t rps_count = total_rps_count;
 	for (size_t i = 0; i < nodes_count; ++i) {
 		elliptics::session session(*nodes[i]);
 		session.set_groups(groups);
 
-		size_t rps_count = total_rps_count;
+		size_t node_rps_count = rps_count / (nodes_count - i);
+		rps_count -= node_rps_count;
+
 		for (size_t j = 0; j < threads_count; ++j) {
-			size_t current_rps_count = rps_count / (threads_count - j);
+			size_t current_rps_count = node_rps_count / (threads_count - j);
 			if (current_rps_count == 0)
 				continue;
 
 			threads.emplace_back(new boost::thread(boost::bind(attack, session.clone(), current_rps_count)));
-			rps_count -= current_rps_count;
+			node_rps_count -= current_rps_count;
 		}
 	}
 
